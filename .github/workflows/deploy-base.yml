@@ -27,8 +27,13 @@ jobs:
 
     - name: 🔐 Configure Kubernetes context
       run: |
+        echo "=== Creating kubeconfig from secret ==="
         echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > kubeconfig.yaml
-        export KUBECONFIG=kubeconfig.yaml
+        echo "Kubeconfig file size: $(wc -c < kubeconfig.yaml) bytes"
+        
+        echo "=== Setting absolute KUBECONFIG path ==="
+        export KUBECONFIG=$(pwd)/kubeconfig.yaml
+        echo "KUBECONFIG=$KUBECONFIG"
         
         echo "🔍 Testing cluster connection..."
         kubectl cluster-info
@@ -37,7 +42,6 @@ jobs:
     - name: 🏷️ Extract version info
       id: version
       run: |
-        # Извлекаем версию из тега или ветки
         if [[ "${{ github.ref }}" == refs/tags/* ]]; then
           VERSION="${GITHUB_REF#refs/tags/}"
           echo "🚀 Deploying version: $VERSION"
@@ -49,14 +53,11 @@ jobs:
 
     - name: 🛠️ Deploy application
       run: |
-        export KUBECONFIG=kubeconfig.yaml
-        
+        export KUBECONFIG=$(pwd)/kubeconfig.yaml
         echo "🚀 Deploying ${{ inputs.app_name }} (Version: ${{ steps.version.outputs.version }})"
         
-        # Добавляем метку с версией
         kubectl apply -f ${{ inputs.k8s_manifests_path }}
         kubectl label deployment/${{ inputs.app_name }} version="${{ steps.version.outputs.version }}" --overwrite
-        
         kubectl rollout status deployment/${{ inputs.app_name }} --timeout=300s
         echo "✅ Application deployed!"
 
@@ -64,5 +65,4 @@ jobs:
       if: inputs.test_url != ''
       run: |
         echo "🧪 Testing: ${{ inputs.test_url }}"
-        echo "📋 Version: ${{ steps.version.outputs.version }}"
         curl -f "${{ inputs.test_url }}" && echo "✅ Test passed!" || echo "❌ Test failed"
