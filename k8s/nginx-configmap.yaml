@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  nginx.conf: |
+    server {
+        listen 80;
+        server_name _;
+        root /usr/share/nginx/html;
+        index index.html;
+        
+        # Основная страница
+        location / {
+            try_files $uri $uri/ =404;
+            add_header X-Deployed-By "GitHub Actions";
+        }
+        
+        # Страница статуса
+        location /status {
+            stub_status on;
+            access_log off;
+            allow all;
+            add_header Content-Type text/plain;
+        }
+        
+        # Кастомная страница информации
+        location /info {
+            add_header Content-Type text/plain;
+            return 200 "Server: Nginx in Kubernetes\nDeployed: $time_local\n";
+        }
+        
+        # Логирование
+        access_log /var/log/nginx/access.log;
+        error_log /var/log/nginx/error.log;
+    }

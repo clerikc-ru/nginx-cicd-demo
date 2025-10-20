@@ -1,0 +1,68 @@
+name: Base Kubernetes Deploy
+
+on:
+  workflow_call:
+    inputs:
+      k8s_manifests_path:
+        required: true
+        type: string
+      app_name:
+        required: true
+        type: string
+      test_url:
+        required: false
+        type: string
+
+jobs:
+  deploy-kubernetes:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup Kubernetes tools
+      uses: azure/setup-kubectl@v3
+
+    - name: 🔐 Configure Kubernetes context
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > kubeconfig.yaml
+        export KUBECONFIG=kubeconfig.yaml
+        
+        echo "🔍 Testing cluster connection..."
+        kubectl cluster-info
+        kubectl get nodes
+
+    - name: 🏷️ Extract version info
+      id: version
+      run: |
+        # Извлекаем версию из тега или ветки
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          VERSION="${GITHUB_REF#refs/tags/}"
+          echo "🚀 Deploying version: $VERSION"
+        else
+          VERSION="${{ github.sha }}"
+          echo "🚀 Deploying commit: $VERSION"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: 🛠️ Deploy application
+      run: |
+        export KUBECONFIG=kubeconfig.yaml
+        
+        echo "🚀 Deploying ${{ inputs.app_name }} (Version: ${{ steps.version.outputs.version }})"
+        
+        # Добавляем метку с версией
+        kubectl apply -f ${{ inputs.k8s_manifests_path }}
+        kubectl label deployment/${{ inputs.app_name }} version="${{ steps.version.outputs.version }}" --overwrite
+        
+        kubectl rollout status deployment/${{ inputs.app_name }} --timeout=300s
+        echo "✅ Application deployed!"
+
+    - name: 🧪 Test deployment
+      if: inputs.test_url != ''
+      run: |
+        echo "🧪 Testing: ${{ inputs.test_url }}"
+        echo "📋 Version: ${{ steps.version.outputs.version }}"
+        curl -f "${{ inputs.test_url }}" && echo "✅ Test passed!" || echo "❌ Test failed"

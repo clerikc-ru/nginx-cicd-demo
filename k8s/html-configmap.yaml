@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-html
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>K8S + GitHub Actions Demo</title>
+        <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; min-height: 100vh; }
+            .container { background: rgba(255, 255, 255, 0.1); padding: 30px; border-radius: 15px; backdrop-filter: blur(10px); }
+            h1 { text-align: center; margin-bottom: 30px; }
+            .status { background: rgba(255, 255, 255, 0.2); padding: 15px; border-radius: 8px; margin: 10px 0; }
+            .links a { display: inline-block; margin: 10px; padding: 10px 20px; background: rgba(255, 255, 255, 0.2); color: white; text-decoration: none; border-radius: 5px; transition: background 0.3s; }
+            .links a:hover { background: rgba(255, 255, 255, 0.3); }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🚀 Kubernetes + GitHub Actions</h1>
+            
+            <div class="status">
+                <h2>✅ Успешный деплой!</h2>
+                <p>Это приложение было развернуто автоматически через CI/CD пайплайн</p>
+            </div>
+
+            <div class="links">
+                <h3>Тестовые ссылки:</h3>
+                <a href="/">Главная</a>
+                <a href="/status">Статус Nginx</a>
+                <a href="/info">Информация</a>
+                <a href="/nonexistent">404 Страница</a>
+            </div>
+
+            <div style="margin-top: 30px; font-size: 0.9em; opacity: 0.8;">
+                <p><strong>Технологии:</strong></p>
+                <ul>
+                    <li>Kubernetes (Kind)</li>
+                    <li>GitHub Actions</li>
+                    <li>Docker + Nginx</li>
+                    <li>ConfigMaps</li>
+                </ul>
+            </div>
+        </div>
+    </body>
+    </html>

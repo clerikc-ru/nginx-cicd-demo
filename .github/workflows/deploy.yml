@@ -1,0 +1,15 @@
+name: 🚀 Deploy Nginx to Kubernetes
+
+on:
+  push:
+    tags:
+      - 'v*'  # Триггер только на теги v1.0.0, v2.1.5, etc
+  workflow_dispatch:  # Разрешает ручной запуск
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-base.yml
+    with:
+      k8s_manifests_path: "k8s/"
+      app_name: "nginx-cicd-demo"
+      test_url: "http://185.8.22.53:30000"
