@@ -34,19 +34,19 @@ jobs:
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
         
-        echo "=== Updating ConfigMaps from files ==="
-        # ОБНОВЛЯЕМ ConfigMaps из актуальных файлов
+        echo "=== Creating ConfigMap from html/index.html ==="
         kubectl create configmap nginx-html --from-file=html/index.html -o yaml --dry-run=client | kubectl apply -f -
+        
+        echo "=== Creating ConfigMap from nginx-config/nginx.conf ==="
         kubectl create configmap nginx-config --from-file=nginx-config/nginx.conf -o yaml --dry-run=client | kubectl apply -f -
         
-        echo "=== Applying Kubernetes manifests ==="
-        kubectl apply -f k8s/
+        echo "=== Applying other manifests ==="
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
         
-        echo "=== Restarting pods to pick up ConfigMap changes ==="
+        echo "=== Restarting pods ==="
         kubectl rollout restart deployment/nginx-cicd-demo
         kubectl rollout status deployment/nginx-cicd-demo --timeout=300s
-        
-        echo "✅ Application deployed with updated ConfigMaps!"
 
     - name: 🧪 Test
       run: |
