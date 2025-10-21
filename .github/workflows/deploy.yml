@@ -30,12 +30,23 @@ jobs:
         kubectl cluster-info
         kubectl get nodes
 
-    - name: 🛠️ Deploy Application
+    - name: 🛠️ Deploy Application with ConfigMap Updates
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
-        echo "Deploying nginx-cicd-demo..."
+        
+        echo "=== Updating ConfigMaps from files ==="
+        # ОБНОВЛЯЕМ ConfigMaps из актуальных файлов
+        kubectl create configmap nginx-html --from-file=html/index.html -o yaml --dry-run=client | kubectl apply -f -
+        kubectl create configmap nginx-config --from-file=nginx-config/nginx.conf -o yaml --dry-run=client | kubectl apply -f -
+        
+        echo "=== Applying Kubernetes manifests ==="
         kubectl apply -f k8s/
+        
+        echo "=== Restarting pods to pick up ConfigMap changes ==="
+        kubectl rollout restart deployment/nginx-cicd-demo
         kubectl rollout status deployment/nginx-cicd-demo --timeout=300s
+        
+        echo "✅ Application deployed with updated ConfigMaps!"
 
     - name: 🧪 Test
       run: |
