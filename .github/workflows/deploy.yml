@@ -1,15 +1,44 @@
-name: 🚀 Deploy Nginx to Kubernetes
+name: 🚀 Fixed Deploy
 
 on:
   push:
     tags:
-      - 'v*'  # Триггер только на теги v1.0.0, v2.1.5, etc
-  workflow_dispatch:  # Разрешает ручной запуск
+      - 'v-*'
 
 jobs:
   deploy:
-    uses: ./.github/workflows/deploy-fixed.yml
-    with:
-      k8s_manifests_path: "k8s/"
-      app_name: "nginx-cicd-demo"
-      test_url: "http://185.8.22.53:30000"
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup kubectl
+      uses: azure/setup-kubectl@v3
+
+    - name: 🔐 Load Kubeconfig CORRECTLY
+      run: |
+        echo "=== STEP 1: Create kubeconfig from secret ==="
+        echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > /tmp/kubeconfig.yaml
+        echo "File created at: /tmp/kubeconfig.yaml"
+        
+        echo "=== STEP 2: Set KUBECONFIG with absolute path ==="
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        echo "KUBECONFIG is: $KUBECONFIG"
+        
+        echo "=== STEP 3: Test connection ==="
+        kubectl cluster-info
+        kubectl get nodes
+
+    - name: 🛠️ Deploy Application
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        echo "Deploying nginx-cicd-demo..."
+        kubectl apply -f k8s/
+        kubectl rollout status deployment/nginx-cicd-demo --timeout=300s
+
+    - name: 🧪 Test
+      run: |
+        echo "Testing deployment..."
+        curl -f http://185.8.22.53:30000 && echo "✅ Main page works!"
+        curl -f http://185.8.22.53:30000/status && echo "✅ Status page works!"
