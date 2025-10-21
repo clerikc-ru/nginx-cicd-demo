@@ -7,7 +7,19 @@ metadata:
     kubernetes.io/ingress.class: nginx
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # ДОБАВЬ ЭТУ АННОТАЦИЮ:
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      if ($request_uri ~* "^/health") {
+        more_set_headers "Content-Type: application/json";
+      }
+      if ($request_uri ~* "^/status") {
+        more_set_headers "Content-Type: text/plain";
+      }
+      if ($request_uri ~* "^/info") {
+        more_set_headers "Content-Type: text/plain";
+      }
 spec:
+  ingressClassName: nginx
   tls:
   - hosts:
     - clerikc.ru
