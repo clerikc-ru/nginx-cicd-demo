@@ -21,7 +21,7 @@ data:
     </head>
     <body>
         <div class="container">
-            <h1>🚀 Kubernetes + GitHub Actions</h1>
+            <h1>🚀 Kubernetes Dashboard v2.0</h1>
             
             <div class="status">
                 <h2>✅ Успешный деплой!</h2>
