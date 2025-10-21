@@ -30,7 +30,7 @@ data:
 
             <div class="links">
                 <h3>Тестовые ссылки:</h3>
-                <a href="/">Главная</a>
+                <a href="/">!!!!Главная!!!</a>
                 <a href="/status">Статус Nginx</a>
                 <a href="/info">Информация</a>
                 <a href="/nonexistent">404 Страница</a>
