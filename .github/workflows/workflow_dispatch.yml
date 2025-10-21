@@ -23,12 +23,33 @@ jobs:
         export KUBECONFIG=/tmp/kubeconfig.yaml
         kubectl get nodes
 
-    - name: 🏗️ Deploy Infrastructure
+    - name: 🗑️ Очистить старый Ingress
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
-        echo "=== Deploying Infrastructure ==="
-        kubectl apply -f k8s/infrastructure/ingress-controller.yaml
-        sleep 10
+        echo "=== Удаляем старый ingress ==="
+        kubectl delete -f k8s/infrastructure/ingress-controller.yaml --ignore-not-found=true
+        kubectl delete namespace ingress-nginx --ignore-not-found=true
+        sleep 5
+
+    - name: 🚀 Установить Official Ingress Controller
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        
+        echo "=== 1. Устанавливаем официальный ingress-nginx ==="
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+        
+        echo "=== 2. Ждем запуска ingress controller ==="
+        sleep 30
+        
+        echo "=== 3. Проверяем статус ==="
+        kubectl get pods -n ingress-nginx
+        kubectl get service -n ingress-nginx
+        
+        echo "=== 4. Ждем готовности ==="
+        kubectl wait --namespace ingress-nginx \
+          --for=condition=ready pod \
+          --selector=app.kubernetes.io/component=controller \
+          --timeout=120s
 
     - name: 🛠️ Deploy Test Application
       run: |
@@ -43,7 +64,15 @@ jobs:
         echo "⏳ Waiting for application..."
         sleep 20
 
-    
+    - name: 🌐 Настроить Ingress
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        
+        echo "=== Применяем Ingress из файла ==="
+        kubectl apply -f k8s/infrastructure/ingress.yaml
+        
+        echo "=== Проверяем Ingress ==="
+        kubectl get ingress
 
     - name: 🔍 Полная диагностика ingress
       run: |
@@ -55,24 +84,34 @@ jobs:
         kubectl get ingress -A
         
         echo "=== 2. Детальная проверка ingress-nginx ==="
-        kubectl describe pod -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx
-        kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --tail=20
+        kubectl describe pod -n ingress-nginx -l app.kubernetes.io/component=controller
+        kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller --tail=20
         
         echo "=== 3. Проверяем приложение ==="
         kubectl get pods -l app=nginx-cicd-demo
-        kubectl describe pod -l app=nginx-cicd-demo
-        kubectl logs -l app=nginx-cicd-demo --tail=10
+        kubectl logs -l app=nginx-cicd-demo --tail=5
         
         echo "=== 4. Проверяем сервис приложения ==="
         kubectl get service nginx-cicd-demo
-        kubectl describe service nginx-cicd-demo
         
         echo "=== 5. Тестируем ВНУТРИ кластера ==="
         kubectl run test-curl --image=curlimages/curl --rm -i --restart=Never --command -- \
           sh -c 'echo "=== Тест сервиса ===" && \
-                 curl -v http://nginx-cicd-demo.default.svc.cluster.local && \
+                 curl -f http://nginx-cicd-demo.default.svc.cluster.local && echo "✅ Сервис работает" && \
                  echo "=== Тест ingress ===" && \
-                 curl -v -H "Host: clerikc.ru" http://ingress-nginx-controller.ingress-nginx.svc.cluster.local'
+                 curl -f -H "Host: clerikc.ru" http://ingress-nginx-controller.ingress-nginx.svc.cluster.local && echo "✅ Ingress работает внутри кластера"'
+
+    - name: 🌐 Тестируем внешний доступ
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        SERVER_IP="185.8.22.53"
+        
+        echo "=== Тестируем доступность снаружи ==="
+        echo "=== Порт 80 (проброшен на 30080) ==="
+        curl -v --connect-timeout 10 -H "Host: clerikc.ru" http://$SERVER_IP:80/ && echo "✅ Ingress работает через порт 80!" || echo "❌ Порт 80 не отвечает"
+        
+        echo "=== Прямой NodePort 30080 ==="
+        curl -v --connect-timeout 10 -H "Host: clerikc.ru" http://$SERVER_IP:30080/ && echo "✅ Ingress работает через NodePort 30080!" || echo "❌ NodePort 30080 не отвечает"
 
     - name: 🔍 Debug if Failed
       if: failure()
@@ -80,5 +119,6 @@ jobs:
         export KUBECONFIG=/tmp/kubeconfig.yaml
         echo "=== ДЕТАЛЬНАЯ ДИАГНОСТИКА ==="
         kubectl describe service -n ingress-nginx
-        kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --tail=20
+        kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller --tail=30
         kubectl get ingress -A
+        kubectl describe ingress nginx-cicd-demo
