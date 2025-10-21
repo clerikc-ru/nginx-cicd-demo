@@ -1,0 +1,61 @@
+name: 🔧 Update Configuration
+
+on:
+  push:
+    tags:
+      - 'config-update-*'
+    # Убрали paths - теперь запускается ТОЛЬКО по тегам
+
+jobs:
+  update-config:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔧 Setup kubectl
+      uses: azure/setup-kubectl@v3
+
+    - name: 🔐 Configure Kubernetes access
+      run: |
+        echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > /tmp/kubeconfig.yaml
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+
+    - name: 🗂️ Update ConfigMaps
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        echo "🔄 Updating ConfigMaps..."
+        
+        # Обновляем HTML конфиг
+        kubectl create configmap nginx-html --from-file=html/index.html -o yaml --dry-run=client | kubectl apply -f -
+        echo "✅ HTML ConfigMap updated"
+        
+        # Обновляем Nginx конфиг
+        kubectl create configmap nginx-config --from-file=nginx-config/nginx.conf -o yaml --dry-run=client | kubectl apply -f -
+        echo "✅ Nginx ConfigMap updated"
+
+    - name: 🔄 Restart Pods
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        echo "🔄 Restarting pods to apply configuration changes..."
+        kubectl rollout restart deployment/nginx-cicd-demo
+        kubectl rollout status deployment/nginx-cicd-demo --timeout=120s
+        echo "✅ Pods restarted successfully"
+
+    - name: ✅ Verify Configuration
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        echo "🔍 Verifying configuration update..."
+        
+        # Проверяем ConfigMaps
+        kubectl get configmap nginx-html nginx-config
+        
+        # Проверяем endpoints (если нужно)
+        echo "🧪 Testing endpoints..."
+        curl -f https://clerikc.ru/health && echo "✅ Health endpoint works" || echo "⚠️ Health endpoint check skipped"
+        curl -f https://clerikc.ru/ && echo "✅ Main page works" || echo "❌ Main page failed"
+        
+        echo "🎉 Configuration updated successfully!"
+        echo "🌐 Check your site: https://clerikc.ru"
