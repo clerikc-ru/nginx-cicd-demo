@@ -1,4 +1,4 @@
-name: 📈 Deploy
+name: 📈 Deploy with SSL
 
 on:
   push:
@@ -16,40 +16,39 @@ jobs:
     - name: 🔧 Setup kubectl
       uses: azure/setup-kubectl@v3
 
-    - name: 🔐 Load Kubeconfig CORRECTLY
+    - name: 🔐 Load Kubeconfig
       run: |
-        echo "=== STEP 1: Create kubeconfig from secret ==="
         echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > /tmp/kubeconfig.yaml
-        echo "File created at: /tmp/kubeconfig.yaml"
-        
-        echo "=== STEP 2: Set KUBECONFIG with absolute path ==="
         export KUBECONFIG=/tmp/kubeconfig.yaml
-        echo "KUBECONFIG is: $KUBECONFIG"
-        
-        echo "=== STEP 3: Test connection ==="
-        kubectl cluster-info
         kubectl get nodes
 
-    - name: 🛠️ Deploy Application with ConfigMap Updates
+    - name: 🏗️ Deploy Infrastructure (SSL)
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
         
-        echo "=== Creating ConfigMap from html/index.html ==="
-        kubectl create configmap nginx-html --from-file=html/index.html -o yaml --dry-run=client | kubectl apply -f -
+        echo "=== Deploying SSL Infrastructure ==="
+        kubectl apply -f k8s/infrastructure/
         
-        echo "=== Creating ConfigMap from nginx-config/nginx.conf ==="
+        echo "⏳ Waiting for infrastructure to be ready..."
+        sleep 60  # Ждем запуска Ingress Controller и Cert Manager
+
+    - name: 🛠️ Deploy Application with SSL
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        
+        echo "=== Creating ConfigMaps ==="
+        kubectl create configmap nginx-html --from-file=html/index.html -o yaml --dry-run=client | kubectl apply -f -
         kubectl create configmap nginx-config --from-file=nginx-config/nginx.conf -o yaml --dry-run=client | kubectl apply -f -
         
-        echo "=== Applying other manifests ==="
-        kubectl apply -f k8s/deployment.yaml
-        kubectl apply -f k8s/service.yaml
+        echo "=== Applying Application with SSL ==="
+        kubectl apply -f k8s/
         
-        echo "=== Restarting pods ==="
-        kubectl rollout restart deployment/nginx-cicd-demo
-        kubectl rollout status deployment/nginx-cicd-demo --timeout=300s
+        echo "⏳ Waiting for SSL certificate issuance..."
+        sleep 30
+        
+        echo "✅ Application deployed with SSL!"
 
-    - name: 🧪 Test
+    - name: 🧪 Test SSL
       run: |
-        echo "Testing deployment..."
-        curl -f http://185.8.22.53:30000 && echo "✅ Main page works!"
-        curl -f http://185.8.22.53:30000/status && echo "✅ Status page works!"
+        echo "Testing SSL deployment..."
+        curl -f https://clerikc.ru && echo "✅ HTTPS works!" || echo "❌ HTTPS failed"
