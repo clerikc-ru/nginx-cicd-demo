@@ -51,10 +51,12 @@ jobs:
     - name: 🛠️ Deploy Application
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
+        # Создаем ConfigMaps
         kubectl create configmap nginx-html --from-file=html/index.html -o yaml --dry-run=client | kubectl apply -f -
         kubectl create configmap nginx-config --from-file=nginx-config/nginx.conf -o yaml --dry-run=client | kubectl apply -f -
-        kubectl apply -f k8s/deployment.yaml
-        kubectl apply -f k8s/service.yaml
+        
+        # Применяем ВСЕ манифесты приложения
+        kubectl apply -f k8s/
 
     - name: 🌐 Configure Ingress with SSL
       run: |
@@ -64,6 +66,13 @@ jobs:
         
         # 🧪 TESTING: Раскомментировать для тестирования (staging ingress)
         # kubectl apply -f k8s/infrastructure/ingress-staging.yaml
+
+    - name: 🔄 Restart for Config Changes
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        echo "🔄 Restarting deployment to apply config changes..."
+        kubectl rollout restart deployment/nginx-cicd-demo
+        kubectl rollout status deployment/nginx-cicd-demo --timeout=180s
 
     - name: ⏳ Wait for SSL Certificate
       run: |
