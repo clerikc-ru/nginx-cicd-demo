@@ -30,24 +30,23 @@ jobs:
         kubectl cluster-info
         kubectl get nodes
 
-    - name: 🛠️ Deploy Application with ConfigMap Updates
+        - name: 🛠️ Deploy Application with Monitoring
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
         
-        echo "=== Creating ConfigMap from html/index.html ==="
+        echo "=== Creating ConfigMaps from files ==="
         kubectl create configmap nginx-html --from-file=html/index.html -o yaml --dry-run=client | kubectl apply -f -
-        
-        echo "=== Creating ConfigMap from nginx-config/nginx.conf ==="
         kubectl create configmap nginx-config --from-file=nginx-config/nginx.conf -o yaml --dry-run=client | kubectl apply -f -
+        kubectl create configmap metrics-script --from-file=scripts/metrics-server.py -o yaml --dry-run=client | kubectl apply -f -
         
-        echo "=== Applying other manifests ==="
-        kubectl apply -f k8s/deployment.yaml
-        kubectl apply -f k8s/service.yaml
+        echo "=== Applying Kubernetes manifests ==="
+        kubectl apply -f k8s/
         
-        echo "=== Restarting pods ==="
+        echo "=== Restarting pods to pick up monitoring changes ==="
         kubectl rollout restart deployment/nginx-cicd-demo
         kubectl rollout status deployment/nginx-cicd-demo --timeout=300s
-
+        
+        echo "✅ Application deployed with real-time monitoring!"
     - name: 🧪 Test
       run: |
         echo "Testing deployment..."

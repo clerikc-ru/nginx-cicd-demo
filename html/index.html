@@ -3,179 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kubernetes Dashboard</title>
+    <title>Kubernetes Monitoring Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        /* Существующие стили + новые */
         
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #333;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .dashboard {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-            color: white;
-        }
-        
-        .header h1 {
-            font-size: 3em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-        
-        .header p {
-            font-size: 1.2em;
-            opacity: 0.9;
-        }
-        
-        .status-grid {
+        .charts-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: 1fr 1fr;
             gap: 20px;
-            margin-bottom: 30px;
+            margin: 30px 0;
         }
         
-        .status-card {
+        .chart-container {
             background: rgba(255, 255, 255, 0.95);
-            padding: 25px;
+            padding: 20px;
             border-radius: 15px;
             box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
         }
         
-        .status-header {
-            display: flex;
-            align-items: center;
+        .chart-title {
+            text-align: center;
             margin-bottom: 15px;
-        }
-        
-        .status-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 10px;
-        }
-        
-        .status-online {
-            background: #10b981;
-            box-shadow: 0 0 10px #10b981;
-        }
-        
-        .status-offline {
-            background: #ef4444;
-        }
-        
-        .metrics {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        .metric {
-            text-align: center;
-            padding: 15px;
-            background: rgba(16, 185, 129, 0.1);
-            border-radius: 10px;
-        }
-        
-        .metric-value {
-            font-size: 2em;
-            font-weight: bold;
-            color: #10b981;
-        }
-        
-        .metric-label {
-            font-size: 0.9em;
-            color: #6b7280;
-        }
-        
-        .links {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 30px;
-        }
-        
-        .link-card {
-            background: rgba(255, 255, 255, 0.9);
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            text-decoration: none;
             color: #374151;
-            transition: all 0.3s ease;
-            border: 2px solid transparent;
+            font-size: 1.2em;
         }
         
-        .link-card:hover {
-            transform: translateY(-5px);
-            border-color: #10b981;
-            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.2);
-        }
-        
-        .tech-stack {
-            margin-top: 40px;
-            text-align: center;
+        .real-time-badge {
+            background: #10b981;
             color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            margin-left: 10px;
+            animation: pulse 2s infinite;
         }
         
-        .tech-icons {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin-top: 20px;
-            flex-wrap: wrap;
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
         }
         
-        .tech-icon {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 15px 25px;
-            border-radius: 10px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .deployment-info {
+        .metrics-history {
             background: rgba(255, 255, 255, 0.9);
             padding: 20px;
             border-radius: 15px;
-            margin-top: 30px;
+            margin-top: 20px;
         }
         
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
             margin-top: 15px;
         }
         
-        .info-item {
+        .history-table th,
+        .history-table td {
             padding: 10px;
-            background: rgba(16, 185, 129, 0.05);
-            border-radius: 8px;
-            border-left: 4px solid #10b981;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .history-table th {
+            background: rgba(16, 185, 129, 0.1);
+            color: #374151;
         }
     </style>
 </head>
 <body>
     <div class="dashboard">
         <div class="header">
-            <h1>🚀 Kubernetes Dashboard - AUTO UPDATED!</h1>
-            <p>Мониторинг развернутого приложения через CI/CD</p>
+            <h1>🚀 Kubernetes Monitoring Dashboard <span class="real-time-badge">LIVE</span></h1>
+            <p>Real-time мониторинг развернутого приложения</p>
+            <div style="margin-top: 10px; font-size: 0.9em;">
+                Последнее обновление: <span id="last-update">--:--:--</span>
+            </div>
         </div>
         
         <div class="status-grid">
@@ -187,107 +90,196 @@
                 <p>Сервер работает стабильно, обрабатывает запросы</p>
                 <div class="metrics">
                     <div class="metric">
-                        <div class="metric-value">4</div>
-                        <div class="metric-label">Подов</div>
+                        <div class="metric-value" id="total-connections">0</div>
+                        <div class="metric-label">Всего соединений</div>
                     </div>
                     <div class="metric">
-                        <div class="metric-value">2</div>
-                        <div class="metric-label">Ноды</div>
+                        <div class="metric-value" id="active-connections">0</div>
+                        <div class="metric-label">Активные сейчас</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="requests-per-sec">0</div>
+                        <div class="metric-label">Запросов/сек</div>
                     </div>
                 </div>
             </div>
             
-            <div class="status-card">
-                <div class="status-header">
-                    <div class="status-indicator status-online"></div>
-                    <h3>Kubernetes Cluster</h3>
-                </div>
-                <p>Кластер Kind функционирует нормально</p>
-                <div class="metrics">
-                    <div class="metric">
-                        <div class="metric-value">3</div>
-                        <div class="metric-label">Ноды</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-value">100%</div>
-                        <div class="metric-label">Доступность</div>
-                    </div>
-                </div>
+            <!-- Остальные статус карточки -->
+        </div>
+        
+        <!-- ГРАФИКИ -->
+        <div class="charts-grid">
+            <div class="chart-container">
+                <div class="chart-title">📈 История подключений</div>
+                <canvas id="connectionsChart"></canvas>
             </div>
-            
-            <div class="status-card">
-                <div class="status-header">
-                    <div class="status-indicator status-online"></div>
-                    <h3>CI/CD Pipeline</h3>
-                </div>
-                <p>GitHub Actions автоматически развертывает приложение</p>
-                <div class="metrics">
-                    <div class="metric">
-                        <div class="metric-value">✅</div>
-                        <div class="metric-label">Готово</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-value">🚀</div>
-                        <div class="metric-label">Авто</div>
-                    </div>
-                </div>
+            <div class="chart-container">
+                <div class="chart-title">🔥 Активные соединения</div>
+                <canvas id="activeChart"></canvas>
             </div>
         </div>
         
-        <div class="deployment-info">
-            <h3>📊 Информация о развертывании</h3>
-            <div class="info-grid">
-                <div class="info-item">
-                    <strong>Кластер:</strong> Kind Local
-                </div>
-                <div class="info-item">
-                    <strong>Версия Kubernetes:</strong> v1.30.0
-                </div>
-                <div class="info-item">
-                    <strong>Деплоймент:</strong> nginx-cicd-demo
-                </div>
-                <div class="info-item">
-                    <strong>Реплики:</strong> 4 пода
-                </div>
-                <div class="info-item">
-                    <strong>Сервис:</strong> NodePort (30000)
-                </div>
-                <div class="info-item">
-                    <strong>Образ:</strong> nginx:alpine
-                </div>
-            </div>
+        <!-- ТАБЛИЦА ИСТОРИИ -->
+        <div class="metrics-history">
+            <h3>📋 История метрик (последние 10 записей)</h3>
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Время</th>
+                        <th>Всего соединений</th>
+                        <th>Активные</th>
+                        <th>Изменение</th>
+                    </tr>
+                </thead>
+                <tbody id="history-table-body">
+                    <!-- Заполнится JavaScript -->
+                </tbody>
+            </table>
         </div>
         
-        <div class="links">
-            <a href="/" class="link-card">
-                <h4>🏠 !!!Главная!!!</h4>
-                <p>Основная страница приложения</p>
-            </a>
-            <a href="/status" class="link-card">
-                <h4>📈 Статус</h4>
-                <p>Детальная статистика Nginx</p>
-            </a>
-            <a href="/info" class="link-card">
-                <h4>ℹ️ Информация</h4>
-                <p>Технические детали</p>
-            </a>
-            <a href="/health" class="link-card">
-                <h4>❤️ Health Check</h4>
-                <p>Проверка здоровья</p>
-            </a>
-        </div>
-        
-        <div class="tech-stack">
-            <h3>🛠 Технологический стек</h3>
-            <div class="tech-icons">
-                <div class="tech-icon">Kubernetes!</div>
-                <div class="tech-icon">Docker!</div>
-                <div class="tech-icon">GitHub Actions!</div>
-                <div class="tech-icon">Nginx!</div>
-                <div class="tech-icon">Kind!</div>
-                <div class="tech-icon">ConfigMaps!</div>
-            </div>
-        </div>
+        <!-- Остальная часть HTML -->
     </div>
+
+    <script>
+        // Графики
+        const connectionsCtx = document.getElementById('connectionsChart').getContext('2d');
+        const activeCtx = document.getElementById('activeChart').getContext('2d');
+        
+        const connectionsChart = new Chart(connectionsCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Всего соединений',
+                    data: [],
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: true
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        const activeChart = new Chart(activeCtx, {
+            type: 'line', 
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Активные соединения',
+                    data: [],
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: true
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        let previousConnections = 0;
+        
+        // Функция обновления данных
+        async function updateMetrics() {
+            try {
+                const response = await fetch('/metrics');
+                const data = await response.json();
+                
+                if (data.current) {
+                    const { connections, active_connections, timestamp } = data.current;
+                    
+                    // Обновляем текущие значения
+                    document.getElementById('total-connections').textContent = connections;
+                    document.getElementById('active-connections').textContent = active_connections;
+                    document.getElementById('last-update').textContent = new Date(timestamp).toLocaleTimeString();
+                    
+                    // Считаем запросы в секунду
+                    const requestsPerSec = connections - previousConnections;
+                    document.getElementById('requests-per-sec').textContent = Math.max(0, requestsPerSec);
+                    previousConnections = connections;
+                    
+                    // Обновляем графики
+                    updateCharts(data.history);
+                    
+                    // Обновляем таблицу истории
+                    updateHistoryTable(data.history);
+                }
+            } catch (error) {
+                console.log('Metrics update failed:', error);
+            }
+        }
+        
+        function updateCharts(history) {
+            const timestamps = history.timestamps.map(ts => 
+                new Date(ts).toLocaleTimeString()
+            );
+            
+            // Обновляем график общих соединений
+            connectionsChart.data.labels = timestamps;
+            connectionsChart.data.datasets[0].data = history.connections;
+            connectionsChart.update();
+            
+            // Обновляем график активных соединений  
+            activeChart.data.labels = timestamps;
+            activeChart.data.datasets[0].data = history.active_connections;
+            activeChart.update();
+        }
+        
+        function updateHistoryTable(history) {
+            const tbody = document.getElementById('history-table-body');
+            tbody.innerHTML = '';
+            
+            // Показываем последние 10 записей
+            const recentData = history.timestamps.slice(-10).map((timestamp, index) => ({
+                timestamp,
+                connections: history.connections[history.connections.length - 10 + index],
+                active: history.active_connections[history.active_connections.length - 10 + index]
+            }));
+            
+            recentData.forEach((item, index) => {
+                const prevConnections = index > 0 ? recentData[index - 1].connections : item.connections;
+                const change = item.connections - prevConnections;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${new Date(item.timestamp).toLocaleTimeString()}</td>
+                    <td>${item.connections}</td>
+                    <td>${item.active}</td>
+                    <td style="color: ${change >= 0 ? '#10b981' : '#ef4444'}">
+                        ${change >= 0 ? '+' : ''}${change}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Автообновление каждые 2 секунды
+        updateMetrics();
+        setInterval(updateMetrics, 2000);
+    </script>
 </body>
 </html>
