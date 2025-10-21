@@ -1,4 +1,4 @@
-name: 🚀 Fixed Deploy
+name: Deploy
 
 on:
   push:
