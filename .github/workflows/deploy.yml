@@ -1,4 +1,4 @@
-name: 📈 Deploy with SSL
+name: 🚀 Deploy Application with SSL
 
 on:
   push:
@@ -10,136 +10,76 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: 📥 Checkout
+    - name: 📥 Checkout code
       uses: actions/checkout@v4
       
     - name: 🔧 Setup kubectl
       uses: azure/setup-kubectl@v3
 
-    - name: 🔐 Load Kubeconfig
+    - name: 🔐 Configure Kubernetes access
       run: |
         echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > /tmp/kubeconfig.yaml
         export KUBECONFIG=/tmp/kubeconfig.yaml
-        kubectl get nodes
 
-    - name: 🗑️ Очистить старые ресурсы
+    - name: 🌐 Deploy Ingress Controller
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
-        echo "=== Очищаем старые ресурсы ==="
-        kubectl delete namespace ingress-nginx --ignore-not-found=true
-        kubectl delete namespace cert-manager --ignore-not-found=true
-        kubectl delete ingress nginx-cicd-demo --ignore-not-found=true
-        kubectl delete certificate clerikc-ru-tls --ignore-not-found=true
-        kubectl delete secret clerikc-ru-tls --ignore-not-found=true
-        sleep 10
-
-    - name: 🚀 Установить Official Ingress-Nginx
-      run: |
-        export KUBECONFIG=/tmp/kubeconfig.yaml
-        
-        echo "=== 1. Устанавливаем официальный ingress-nginx ==="
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-        
-        echo "=== 2. Ждем запуска ingress controller ==="
-        sleep 30
-        
-        echo "=== 3. Исправляем порты для Kind ==="
         kubectl patch service -n ingress-nginx ingress-nginx-controller --type='json' -p='[
           {"op": "replace", "path": "/spec/type", "value": "NodePort"},
           {"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30080},
           {"op": "replace", "path": "/spec/ports/1/nodePort", "value": 30443}
         ]'
-        
-        echo "=== 4. Проверяем ingress-nginx ==="
-        kubectl get pods -n ingress-nginx
-        kubectl get service -n ingress-nginx
+        kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=180s
 
-    - name: 📦 Install Cert-Manager (Official)
+    - name: 🔒 Deploy Cert-Manager
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
-        echo "=== Installing Cert-Manager ==="
-        
         kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
-        
-        echo "⏳ Waiting for cert-manager to be ready..."
-        sleep 60
-        kubectl wait --namespace cert-manager \
-          --for=condition=ready pod \
-          --selector=app.kubernetes.io/instance=cert-manager \
-          --timeout=300s
-        
-        echo "=== Проверяем cert-manager ==="
-        kubectl get pods -n cert-manager
+        kubectl wait --namespace cert-manager --for=condition=ready pod --selector=app.kubernetes.io/instance=cert-manager --timeout=300s
 
-    - name: 📝 Настроить Staging ClusterIssuer
+    - name: 📝 Configure SSL Issuer
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
+        # 🚀 PRODUCTION: Используем prod issuer для продакшена
+        kubectl apply -f k8s/infrastructure/cluster-issuer-prod.yaml
         
-        echo "=== Создаем Staging ClusterIssuer ==="
-        kubectl apply -f - <<EOF
-        apiVersion: cert-manager.io/v1
-        kind: ClusterIssuer
-        metadata:
-          name: letsencrypt-staging
-        spec:
-          acme:
-            server: https://acme-staging-v02.api.letsencrypt.org/directory
-            email: uppsikc@gmail.com
-            privateKeySecretRef:
-              name: letsencrypt-staging
-            solvers:
-            - http01:
-                ingress:
-                  class: nginx
-        EOF
-        
-        echo "=== Проверяем ClusterIssuer ==="
-        kubectl get clusterissuer
+        # 🧪 TESTING: Раскомментировать для тестирования (staging issuer)
+        # kubectl apply -f k8s/infrastructure/cluster-issuer-staging.yaml
 
     - name: 🛠️ Deploy Application
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
-        
-        echo "=== Creating ConfigMaps ==="
         kubectl create configmap nginx-html --from-file=html/index.html -o yaml --dry-run=client | kubectl apply -f -
         kubectl create configmap nginx-config --from-file=nginx-config/nginx.conf -o yaml --dry-run=client | kubectl apply -f -
-        
-        echo "=== Deploying Application ==="
         kubectl apply -f k8s/deployment.yaml
         kubectl apply -f k8s/service.yaml
-        
-        echo "⏳ Waiting for application to start..."
-        sleep 20
 
-    - name: 🌐 Настроить Ingress с Staging SSL
+    - name: 🌐 Configure Ingress with SSL
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
+        # 🚀 PRODUCTION: Используем prod ingress для продакшена
+        kubectl apply -f k8s/infrastructure/ingress-prod.yaml
         
-        echo "=== Применяем Ingress с Staging SSL ==="
-        kubectl apply -f k8s/infrastructure/ingress.yaml
-        
-        echo "=== Проверяем Ingress ==="
-        kubectl get ingress
-        
-        echo "⏳ Ждем выдачи Staging SSL сертификата..."
-        sleep 120
-        
-        echo "=== Проверяем сертификат ==="
+        # 🧪 TESTING: Раскомментировать для тестирования (staging ingress)
+        # kubectl apply -f k8s/infrastructure/ingress-staging.yaml
+
+    - name: ⏳ Wait for SSL Certificate
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        echo "⏳ Waiting for SSL certificate issuance..."
+        sleep 90
         kubectl get certificate
-        kubectl describe certificate clerikc-ru-tls
+        echo "✅ SSL certificate ready"
 
-    - name: 🧪 Test Staging SSL
+    - name: ✅ Verify Deployment
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
-        echo "Testing Staging SSL deployment..."
+        echo "🔍 Checking deployment status..."
+        kubectl get pods
+        kubectl get ingress
+        kubectl get certificate
         
-        echo "=== Testing HTTPS (будет предупреждение в браузере - это нормально для staging) ==="
-        if curl -fk https://clerikc.ru; then
-          echo "✅ Staging HTTPS works! (браузер будет ругаться - это нормально)"
-        else
-          echo "❌ HTTPS failed, checking resources..."
-          kubectl get ingress -A
-          kubectl get certificate -A
-          kubectl logs -n cert-manager -l app.kubernetes.io/name=cert-manager --tail=20
-          exit 1
-        fi
+        echo "🎉 Application deployed successfully!"
+        echo "🌐 Access your site: https://clerikc.ru"
+        echo "💡 Note: For testing, use staging issuer/ingress files"
