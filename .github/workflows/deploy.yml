@@ -116,6 +116,27 @@ jobs:
         
         echo "✅ Application deployed with SSL!"
 
+    - name: 🔍 Диагностика SSL
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        
+        echo "=== 1. Проверяем статус сертификата ==="
+        kubectl get certificate -A
+        kubectl describe certificate clerikc-ru-tls
+        
+        echo "=== 2. Проверяем Order и Challenge ==="
+        kubectl get orders -A
+        kubectl get challenges -A
+        
+        echo "=== 3. Проверяем секрет с сертификатом ==="
+        kubectl get secret clerikc-ru-tls -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -text -noout | head 20
+        
+        echo "=== 4. Логи cert-manager ==="
+        kubectl logs -n cert-manager -l app.kubernetes.io/name=cert-manager --tail=30
+        
+        echo "=== 5. Проверяем ingress ==="
+        kubectl describe ingress nginx-cicd-demo
+
     - name: 🧪 Test SSL
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
