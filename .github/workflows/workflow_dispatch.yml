@@ -43,27 +43,25 @@ jobs:
         echo "⏳ Waiting for application..."
         sleep 20
 
-    - name: 🌐 Test Ingress Access
+    - name: 🔍 Проверить Ingress Controller
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
         
-        echo "=== 1. Проверяем сервисы ==="
+        echo "=== 1. Проверяем Ingress Controller ==="
         kubectl get service -n ingress-nginx
-        kubectl get pods -n ingress-nginx
-        kubectl get pods -l app=nginx-cicd-demo
         
         echo "=== 2. Используем внешний IP сервера ==="
         SERVER_IP="185.8.22.53"
         echo "Тестируем на IP: $SERVER_IP"
         
-        echo "=== 3. Проверяем прямое HTTP подключение на порт 80 ==="
-        curl -v --connect-timeout 10 http://$SERVER_IP:80/ && echo "✅ HTTP на порту 80 РАБОТАЕТ!" || echo "❌ HTTP на порту 80 не работает"
+        echo "=== 3. Проверяем HTTP через порт 80 ==="
+        curl -f http://$SERVER_IP:80 && echo "✅ HTTP на порту 80 РАБОТАЕТ!" || echo "❌ HTTP на порту 80 не работает"
         
-        echo "=== 4. Проверяем с Host header (как будто это clerikc.ru) ==="
-        curl -v --connect-timeout 10 -H "Host: clerikc.ru" http://$SERVER_IP/ && echo "✅ HTTP с Host header РАБОТАЕТ!" || echo "❌ HTTP с Host header не работает"
+        echo "=== 4. Проверяем с Host header ==="
+        curl -f -H "Host: clerikc.ru" http://$SERVER_IP:80 && echo "✅ HTTP с Host header РАБОТАЕТ!" || echo "❌ HTTP с Host header не работает"
         
-        echo "=== 5. Проверяем HTTPS на порту 443 ==="
-        curl -vk --connect-timeout 10 https://$SERVER_IP:443/ && echo "✅ HTTPS на порту 443 отвечает!" || echo "❌ HTTPS на порту 443 не отвечает"
+        echo "=== 5. Проверяем текущие порты 30080/30443 ==="
+        curl -f http://$SERVER_IP:30080 && echo "✅ HTTP на 30080 РАБОТАЕТ!" || echo "❌ HTTP на 30080 не работает"
 
     - name: 🔍 Debug if Failed
       if: failure()

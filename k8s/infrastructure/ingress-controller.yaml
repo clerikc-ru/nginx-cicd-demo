@@ -96,12 +96,12 @@ spec:
       port: 80
       targetPort: http
       protocol: TCP
-      nodePort: 80  # Меняем с 30080 на 80
+      nodePort: 30080  # ← Возвращаем 30080
     - name: https
       port: 443
       targetPort: https
       protocol: TCP
-      nodePort: 443  # Меняем с 30443 на 443
+      nodePort: 30443  # ← Возвращаем 30443
   selector:
     app.kubernetes.io/name: ingress-nginx
     app.kubernetes.io/part-of: ingress-nginx
