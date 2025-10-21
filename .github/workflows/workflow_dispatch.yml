@@ -23,13 +23,13 @@ jobs:
         export KUBECONFIG=/tmp/kubeconfig.yaml
         kubectl get nodes
 
-    - name: 🗑️ Очистить старый Ingress
+    - name: 🗑️ Очистить старые ресурсы
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
-        echo "=== Удаляем старый ingress ==="
-        kubectl delete -f k8s/infrastructure/ingress-controller.yaml --ignore-not-found=true
+        echo "=== Очищаем старые ресурсы ==="
         kubectl delete namespace ingress-nginx --ignore-not-found=true
-        sleep 5
+        kubectl delete namespace cert-manager --ignore-not-found=true
+        sleep 10
 
     - name: 🚀 Установить Official Ingress Controller
       run: |
