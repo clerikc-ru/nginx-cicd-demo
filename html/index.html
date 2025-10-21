@@ -187,12 +187,12 @@
                 <p>Сервер работает стабильно, обрабатывает запросы</p>
                 <div class="metrics">
                     <div class="metric">
-                        <div class="metric-value">4</div>
+                        <div class="metric-value">3</div>
                         <div class="metric-label">Подов</div>
                     </div>
                     <div class="metric">
-                        <div class="metric-value">2</div>
-                        <div class="metric-label">Ноды</div>
+                        <div class="metric-value">80</div>
+                        <div class="metric-label">Порт</div>
                     </div>
                 </div>
             </div>
@@ -218,17 +218,17 @@
             <div class="status-card">
                 <div class="status-header">
                     <div class="status-indicator status-online"></div>
-                    <h3>CI/CD Pipeline</h3>
+                    <h3>SSL Security</h3>
                 </div>
-                <p>GitHub Actions автоматически развертывает приложение</p>
+                <p>Let's Encrypt сертификат активен и валиден</p>
                 <div class="metrics">
                     <div class="metric">
-                        <div class="metric-value">✅</div>
-                        <div class="metric-label">Готово</div>
+                        <div class="metric-value">🔒</div>
+                        <div class="metric-label">HTTPS</div>
                     </div>
                     <div class="metric">
-                        <div class="metric-value">🚀</div>
-                        <div class="metric-label">Авто</div>
+                        <div class="metric-value">✅</div>
+                        <div class="metric-label">SSL</div>
                     </div>
                 </div>
             </div>
@@ -238,7 +238,7 @@
             <h3>📊 Информация о развертывании</h3>
             <div class="info-grid">
                 <div class="info-item">
-                    <strong>Кластер:</strong> Kind Local
+                    <strong>Кластер:</strong> Kind (3 ноды)
                 </div>
                 <div class="info-item">
                     <strong>Версия Kubernetes:</strong> v1.30.0
@@ -247,13 +247,19 @@
                     <strong>Деплоймент:</strong> nginx-cicd-demo
                 </div>
                 <div class="info-item">
-                    <strong>Реплики:</strong> 4 пода
+                    <strong>Реплики:</strong> 3 пода
                 </div>
                 <div class="info-item">
                     <strong>Сервис:</strong> NodePort (30000)
                 </div>
                 <div class="info-item">
-                    <strong>Образ:</strong> nginx:alpine
+                    <strong>Ingress:</strong> nginx + SSL
+                </div>
+                <div class="info-item">
+                    <strong>SSL Issuer:</strong> Let's Encrypt
+                </div>
+                <div class="info-item">
+                    <strong>Домен:</strong> clerikc.ru
                 </div>
             </div>
         </div>
@@ -263,13 +269,13 @@
                 <h4>🏠 Главная</h4>
                 <p>Основная страница приложения</p>
             </a>
-            <a href="/status" class="link-card">
-                <h4>📈 Статус</h4>
-                <p>Детальная статистика Nginx</p>
+            <a href="https://github.com/clerikc/nginx-cicd-demo/actions" class="link-card" target="_blank">
+                <h4>⚙️ CI/CD</h4>
+                <p>GitHub Actions пайплайн</p>
             </a>
-            <a href="/info" class="link-card">
-                <h4>ℹ️ Информация</h4>
-                <p>Технические детали</p>
+            <a href="https://github.com/clerikc/nginx-cicd-demo" class="link-card" target="_blank">
+                <h4>📁 Репозиторий</h4>
+                <p>Исходный код проекта</p>
             </a>
             <a href="/health" class="link-card">
                 <h4>❤️ Health Check</h4>
@@ -280,12 +286,14 @@
         <div class="tech-stack">
             <h3>🛠 Технологический стек</h3>
             <div class="tech-icons">
-                <div class="tech-icon">Kubernetes!</div>
-                <div class="tech-icon">Docker!</div>
-                <div class="tech-icon">GitHub Actions!</div>
-                <div class="tech-icon">Nginx!</div>
-                <div class="tech-icon">Kind!</div>
-                <div class="tech-icon">ConfigMaps!</div>
+                <div class="tech-icon">Kubernetes</div>
+                <div class="tech-icon">Docker</div>
+                <div class="tech-icon">GitHub Actions</div>
+                <div class="tech-icon">Nginx</div>
+                <div class="tech-icon">Kind</div>
+                <div class="tech-icon">SSL/TLS</div>
+                <div class="tech-icon">Cert-Manager</div>
+                <div class="tech-icon">Let's Encrypt</div>
             </div>
         </div>
     </div>
