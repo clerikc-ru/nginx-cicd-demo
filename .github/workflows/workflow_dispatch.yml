@@ -51,6 +51,20 @@ jobs:
           --selector=app.kubernetes.io/component=controller \
           --timeout=120s
 
+    - name: 🔧 Исправить порты для Kind
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        
+        echo "=== Исправляем сервис на NodePort с правильными портами ==="
+        kubectl patch service -n ingress-nginx ingress-nginx-controller --type='json' -p='[
+          {"op": "replace", "path": "/spec/type", "value": "NodePort"},
+          {"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30080},
+          {"op": "replace", "path": "/spec/ports/1/nodePort", "value": 30443}
+        ]'
+        
+        echo "=== Проверяем исправленный сервис ==="
+        kubectl get service -n ingress-nginx
+
     - name: 🛠️ Deploy Test Application
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
