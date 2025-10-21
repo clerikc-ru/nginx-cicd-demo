@@ -43,6 +43,29 @@ jobs:
         echo "⏳ Waiting for application..."
         sleep 20
 
+    - name: 🌐 Тестируем все порты
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        SERVER_IP="185.8.22.53"
+        
+        echo "=== 1. Проверяем базовую доступность портов ==="
+        nc -zv $SERVER_IP 80 && echo "✅ Порт 80 открыт" || echo "❌ Порт 80 закрыт"
+        nc -zv $SERVER_IP 443 && echo "✅ Порт 443 открыт" || echo "❌ Порт 443 закрыт"
+        nc -zv $SERVER_IP 30080 && echo "✅ Порт 30080 открыт" || echo "❌ Порт 30080 закрыт"
+        nc -zv $SERVER_IP 30443 && echo "✅ Порт 30443 открыт" || echo "❌ Порт 30443 закрыт"
+        
+        echo "=== 2. Тестируем HTTP на порту 80 ==="
+        curl -v --connect-timeout 10 http://$SERVER_IP:80/ 2>&1 | head -20
+        
+        echo "=== 3. Тестируем HTTP на порту 30080 ==="
+        curl -v --connect-timeout 10 http://$SERVER_IP:30080/ 2>&1 | head -20
+        
+        echo "=== 4. Тестируем с Host header на порту 80 ==="
+        curl -v --connect-timeout 10 -H "Host: clerikc.ru" http://$SERVER_IP:80/ 2>&1 | head -20
+        
+        echo "=== 5. Проверяем логи ingress ==="
+        kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --tail=10
+
     - name: 🔍 Проверить Ingress Controller
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
