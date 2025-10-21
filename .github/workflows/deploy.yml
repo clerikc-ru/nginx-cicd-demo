@@ -22,33 +22,64 @@ jobs:
         export KUBECONFIG=/tmp/kubeconfig.yaml
         kubectl get nodes
 
-    - name: 📦 Install Cert-Manager CRDs
+    - name: 🗑️ Очистить старые ресурсы
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
-        echo "=== Installing Cert-Manager CRDs ==="
-        kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.14.4/cert-manager.crds.yaml
-        echo "⏳ Waiting for CRDs to be registered..."
+        echo "=== Очищаем старые ресурсы ==="
+        kubectl delete -f k8s/infrastructure/ingress-controller.yaml --ignore-not-found=true
+        kubectl delete namespace ingress-nginx --ignore-not-found=true
+        kubectl delete -f k8s/infrastructure/cert-manager.yaml --ignore-not-found=true
+        kubectl delete namespace cert-manager --ignore-not-found=true
         sleep 10
 
-    - name: 🏗️ Deploy Infrastructure (SSL)
+    - name: 🚀 Установить Official Ingress-Nginx
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
         
-        echo "=== Deploying SSL Infrastructure ==="
+        echo "=== 1. Устанавливаем официальный ingress-nginx ==="
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
         
-        # 1. Сначала cert-manager и ingress-nginx
-        kubectl apply -f k8s/infrastructure/cert-manager.yaml
-        kubectl apply -f k8s/infrastructure/ingress-controller.yaml
-        
-        echo "⏳ Waiting for cert-manager to be ready..."
+        echo "=== 2. Ждем запуска ingress controller ==="
         sleep 30
         
-        # 2. Проверяем, что cert-manager запустился
-        kubectl get pods -n cert-manager
+        echo "=== 3. Исправляем порты для Kind ==="
+        kubectl patch service -n ingress-nginx ingress-nginx-controller --type='json' -p='[
+          {"op": "replace", "path": "/spec/type", "value": "NodePort"},
+          {"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30080},
+          {"op": "replace", "path": "/spec/ports/1/nodePort", "value": 30443}
+        ]'
         
-        # 3. Только потом ClusterIssuer
+        echo "=== 4. Проверяем ingress-nginx ==="
+        kubectl get pods -n ingress-nginx
+        kubectl get service -n ingress-nginx
+
+    - name: 📦 Install Cert-Manager (Official)
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        echo "=== Installing Cert-Manager ==="
+        
+        # Устанавливаем полную версию cert-manager
+        kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
+        
+        echo "⏳ Waiting for cert-manager to be ready..."
+        sleep 60
+        kubectl wait --namespace cert-manager \
+          --for=condition=ready pod \
+          --selector=app.kubernetes.io/instance=cert-manager \
+          --timeout=300s
+        
+        echo "=== Проверяем cert-manager ==="
+        kubectl get pods -n cert-manager
+
+    - name: 📝 Настроить ClusterIssuer
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        
+        echo "=== Создаем ClusterIssuer ==="
         kubectl apply -f k8s/infrastructure/cluster-issuer.yaml
-        echo "✅ SSL infrastructure deployed!"
+        
+        echo "=== Проверяем ClusterIssuer ==="
+        kubectl get clusterissuer
 
     - name: 🛠️ Deploy Application with SSL
       run: |
@@ -59,7 +90,6 @@ jobs:
         kubectl create configmap nginx-config --from-file=nginx-config/nginx.conf -o yaml --dry-run=client | kubectl apply -f -
         
         echo "=== Deploying Application ==="
-        # Сначала деплоймент и сервис
         kubectl apply -f k8s/deployment.yaml
         kubectl apply -f k8s/service.yaml
         
@@ -67,15 +97,13 @@ jobs:
         sleep 20
         
         echo "=== Deploying Certificate ==="
-        # Создаем Certificate ресурс
         kubectl apply -f k8s/infrastructure/certificate.yaml
         
         echo "=== Deploying Ingress with TLS ==="
-        # Только потом Ingress с TLS
         kubectl apply -f k8s/infrastructure/ingress-tls.yaml
         
-        echo "⏳ Waiting for SSL certificate issuance (this may take 1-2 minutes)..."
-        sleep 90
+        echo "⏳ Waiting for SSL certificate issuance (this may take 2-3 minutes)..."
+        sleep 180
         
         # Проверяем статус сертификата
         echo "=== Checking Certificate Status ==="
@@ -102,5 +130,6 @@ jobs:
           kubectl get certificate -A
           kubectl get challenges -A
           kubectl describe certificate clerikc-ru-tls
+          kubectl logs -n cert-manager -l app.kubernetes.io/name=cert-manager --tail=20
           exit 1
         fi
