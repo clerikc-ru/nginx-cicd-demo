@@ -1,4 +1,4 @@
-name: 📈 Deploy
+name: 📈 Deploy with Monitoring
 
 on:
   push:
@@ -30,7 +30,7 @@ jobs:
         kubectl cluster-info
         kubectl get nodes
 
-        - name: 🛠️ Deploy Application with Monitoring
+    - name: 🛠️ Deploy Application with Monitoring
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
         
@@ -47,8 +47,11 @@ jobs:
         kubectl rollout status deployment/nginx-cicd-demo --timeout=300s
         
         echo "✅ Application deployed with real-time monitoring!"
+
     - name: 🧪 Test
       run: |
         echo "Testing deployment..."
+        sleep 10  # Даем время подам запуститься
         curl -f http://185.8.22.53:30000 && echo "✅ Main page works!"
         curl -f http://185.8.22.53:30000/status && echo "✅ Status page works!"
+        curl -f http://185.8.22.53:30000/metrics && echo "✅ Metrics API works!"
