@@ -1,7 +1,7 @@
-name: 🔍 Test Ingress Controller
+name: 🔍 Test Ingress Access
 
 on:
-  workflow_dispatch:  # Это позволяет запускать вручную из UI GitHub
+  workflow_dispatch:
   push:
     tags:
       - 'v-*'
@@ -23,18 +23,53 @@ jobs:
         export KUBECONFIG=/tmp/kubeconfig.yaml
         kubectl get nodes
 
-    - name: 🔍 Проверить Ingress Controller
+    - name: 🏗️ Deploy Infrastructure
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        echo "=== Deploying Infrastructure ==="
+        kubectl apply -f k8s/infrastructure/ingress-controller.yaml
+        sleep 10
+
+    - name: 🛠️ Deploy Test Application
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
         
-        echo "=== 1. Проверяем Ingress Controller ==="
+        echo "=== Deploying Test Application ==="
+        kubectl create configmap nginx-html --from-file=html/index.html -o yaml --dry-run=client | kubectl apply -f -
+        kubectl create configmap nginx-config --from-file=nginx-config/nginx.conf -o yaml --dry-run=client | kubectl apply -f -
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
+        
+        echo "⏳ Waiting for application..."
+        sleep 20
+
+    - name: 🌐 Test Ingress Access
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        
+        echo "=== 1. Проверяем сервисы ==="
         kubectl get service -n ingress-nginx
+        kubectl get pods -n ingress-nginx
+        kubectl get pods -l app=nginx-cicd-demo
         
-        echo "=== 2. Ждем получения внешнего IP ==="
-        timeout 180s bash -c 'while [[ $(kubectl get service -n ingress-nginx ingress-nginx-controller -o jsonpath="{.status.loadBalancer.ingress[0].ip}") == "" ]]; do sleep 5; echo "Ожидаем External IP..."; done'
+        echo "=== 2. Используем внешний IP сервера ==="
+        SERVER_IP="185.8.22.53"
+        echo "Тестируем на IP: $SERVER_IP"
         
-        EXTERNAL_IP=$(kubectl get service -n ingress-nginx ingress-nginx-controller -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
-        echo "✅ External IP: $EXTERNAL_IP"
+        echo "=== 3. Проверяем прямое HTTP подключение на порт 80 ==="
+        curl -v --connect-timeout 10 http://$SERVER_IP:80/ && echo "✅ HTTP на порту 80 РАБОТАЕТ!" || echo "❌ HTTP на порту 80 не работает"
         
-        echo "=== 3. Проверяем HTTP доступность ==="
-        curl -f http://$EXTERNAL_IP || echo "❌ HTTP не работает"
+        echo "=== 4. Проверяем с Host header (как будто это clerikc.ru) ==="
+        curl -v --connect-timeout 10 -H "Host: clerikc.ru" http://$SERVER_IP/ && echo "✅ HTTP с Host header РАБОТАЕТ!" || echo "❌ HTTP с Host header не работает"
+        
+        echo "=== 5. Проверяем HTTPS на порту 443 ==="
+        curl -vk --connect-timeout 10 https://$SERVER_IP:443/ && echo "✅ HTTPS на порту 443 отвечает!" || echo "❌ HTTPS на порту 443 не отвечает"
+
+    - name: 🔍 Debug if Failed
+      if: failure()
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        echo "=== ДЕТАЛЬНАЯ ДИАГНОСТИКА ==="
+        kubectl describe service -n ingress-nginx
+        kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --tail=20
+        kubectl get ingress -A
