@@ -43,48 +43,36 @@ jobs:
         echo "⏳ Waiting for application..."
         sleep 20
 
-    - name: 🌐 Тестируем все порты
-      run: |
-        export KUBECONFIG=/tmp/kubeconfig.yaml
-        SERVER_IP="185.8.22.53"
-        
-        echo "=== 1. Проверяем базовую доступность портов ==="
-        nc -zv $SERVER_IP 80 && echo "✅ Порт 80 открыт" || echo "❌ Порт 80 закрыт"
-        nc -zv $SERVER_IP 443 && echo "✅ Порт 443 открыт" || echo "❌ Порт 443 закрыт"
-        nc -zv $SERVER_IP 30080 && echo "✅ Порт 30080 открыт" || echo "❌ Порт 30080 закрыт"
-        nc -zv $SERVER_IP 30443 && echo "✅ Порт 30443 открыт" || echo "❌ Порт 30443 закрыт"
-        
-        echo "=== 2. Тестируем HTTP на порту 80 ==="
-        curl -v --connect-timeout 10 http://$SERVER_IP:80/ 2>&1 | head -20
-        
-        echo "=== 3. Тестируем HTTP на порту 30080 ==="
-        curl -v --connect-timeout 10 http://$SERVER_IP:30080/ 2>&1 | head -20
-        
-        echo "=== 4. Тестируем с Host header на порту 80 ==="
-        curl -v --connect-timeout 10 -H "Host: clerikc.ru" http://$SERVER_IP:80/ 2>&1 | head -20
-        
-        echo "=== 5. Проверяем логи ingress ==="
-        kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --tail=10
+    
 
-    - name: 🔍 Проверить Ingress Controller
+    - name: 🔍 Полная диагностика ingress
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
         
-        echo "=== 1. Проверяем Ingress Controller ==="
-        kubectl get service -n ingress-nginx
+        echo "=== 1. Проверяем все ресурсы ==="
+        kubectl get pods -A
+        kubectl get services -A
+        kubectl get ingress -A
         
-        echo "=== 2. Используем внешний IP сервера ==="
-        SERVER_IP="185.8.22.53"
-        echo "Тестируем на IP: $SERVER_IP"
+        echo "=== 2. Детальная проверка ingress-nginx ==="
+        kubectl describe pod -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx
+        kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --tail=20
         
-        echo "=== 3. Проверяем HTTP через порт 80 ==="
-        curl -f http://$SERVER_IP:80 && echo "✅ HTTP на порту 80 РАБОТАЕТ!" || echo "❌ HTTP на порту 80 не работает"
+        echo "=== 3. Проверяем приложение ==="
+        kubectl get pods -l app=nginx-cicd-demo
+        kubectl describe pod -l app=nginx-cicd-demo
+        kubectl logs -l app=nginx-cicd-demo --tail=10
         
-        echo "=== 4. Проверяем с Host header ==="
-        curl -f -H "Host: clerikc.ru" http://$SERVER_IP:80 && echo "✅ HTTP с Host header РАБОТАЕТ!" || echo "❌ HTTP с Host header не работает"
+        echo "=== 4. Проверяем сервис приложения ==="
+        kubectl get service nginx-cicd-demo
+        kubectl describe service nginx-cicd-demo
         
-        echo "=== 5. Проверяем текущие порты 30080/30443 ==="
-        curl -f http://$SERVER_IP:30080 && echo "✅ HTTP на 30080 РАБОТАЕТ!" || echo "❌ HTTP на 30080 не работает"
+        echo "=== 5. Тестируем ВНУТРИ кластера ==="
+        kubectl run test-curl --image=curlimages/curl --rm -i --restart=Never --command -- \
+          sh -c 'echo "=== Тест сервиса ===" && \
+                 curl -v http://nginx-cicd-demo.default.svc.cluster.local && \
+                 echo "=== Тест ingress ===" && \
+                 curl -v -H "Host: clerikc.ru" http://ingress-nginx-controller.ingress-nginx.svc.cluster.local'
 
     - name: 🔍 Debug if Failed
       if: failure()
