@@ -22,15 +22,33 @@ jobs:
         export KUBECONFIG=/tmp/kubeconfig.yaml
         kubectl get nodes
 
+    - name: 📦 Install Cert-Manager CRDs
+      run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
+        echo "=== Installing Cert-Manager CRDs ==="
+        kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.14.4/cert-manager.crds.yaml
+        echo "⏳ Waiting for CRDs to be registered..."
+        sleep 10
+
     - name: 🏗️ Deploy Infrastructure (SSL)
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
         
         echo "=== Deploying SSL Infrastructure ==="
-        kubectl apply -f k8s/infrastructure/
         
-        echo "⏳ Waiting for infrastructure to be ready..."
-        sleep 60  # Ждем запуска Ingress Controller и Cert Manager
+        # 1. Сначала cert-manager и ingress-nginx (без ClusterIssuer и Ingress)
+        kubectl apply -f k8s/infrastructure/cert-manager.yaml
+        kubectl apply -f k8s/infrastructure/ingress-controller.yaml
+        
+        echo "⏳ Waiting for cert-manager to be ready..."
+        sleep 30
+        
+        # 2. Проверяем, что cert-manager запустился
+        kubectl get pods -n cert-manager
+        
+        # 3. Только потом ClusterIssuer
+        kubectl apply -f k8s/infrastructure/cluster-issuer.yaml
+        echo "✅ SSL infrastructure deployed!"
 
     - name: 🛠️ Deploy Application with SSL
       run: |
@@ -40,15 +58,41 @@ jobs:
         kubectl create configmap nginx-html --from-file=html/index.html -o yaml --dry-run=client | kubectl apply -f -
         kubectl create configmap nginx-config --from-file=nginx-config/nginx.conf -o yaml --dry-run=client | kubectl apply -f -
         
-        echo "=== Applying Application with SSL ==="
-        kubectl apply -f k8s/
+        echo "=== Deploying Application ==="
+        # Сначала деплоймент и сервис
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
+        
+        echo "⏳ Waiting for application to start..."
+        sleep 20
+        
+        echo "=== Deploying Ingress with TLS ==="
+        # Только потом Ingress с TLS (после ClusterIssuer)
+        kubectl apply -f k8s/infrastructure/ingress-tls.yaml
         
         echo "⏳ Waiting for SSL certificate issuance..."
-        sleep 30
+        sleep 60
+        
+        # Проверяем статус сертификата
+        echo "=== Checking Certificate Status ==="
+        kubectl get certificate -A
+        kubectl describe certificate clerikc-ru-tls
         
         echo "✅ Application deployed with SSL!"
 
     - name: 🧪 Test SSL
       run: |
+        export KUBECONFIG=/tmp/kubeconfig.yaml
         echo "Testing SSL deployment..."
-        curl -f https://clerikc.ru && echo "✅ HTTPS works!" || echo "❌ HTTPS failed"
+        # Даем больше времени для выдачи сертификата
+        sleep 30
+        
+        echo "=== Testing HTTPS ==="
+        if curl -fk https://clerikc.ru; then
+          echo "✅ HTTPS works!"
+        else
+          echo "❌ HTTPS failed, checking resources..."
+          kubectl get ingress -A
+          kubectl get certificate -A
+          exit 1
+        fi
