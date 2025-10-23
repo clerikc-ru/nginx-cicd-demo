@@ -21,11 +21,27 @@ jobs:
       run: |
         echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > /tmp/kubeconfig.yaml
         export KUBECONFIG=/tmp/kubeconfig.yaml
+        
+        # 📝 Extract CA certificate and add to trusted certificates
+        mkdir -p /tmp/certs
+        cat /tmp/kubeconfig.yaml | grep certificate-authority-data | awk '{print $2}' | base64 -d > /tmp/certs/kind-ca.crt
+        
+        # 🔒 Add CA certificate to system trusted certificates
+        sudo cp /tmp/certs/kind-ca.crt /usr/local/share/ca-certificates/kind-ca.crt
+        sudo update-ca-certificates
+        
+        # 🌐 Set environment variables for additional CA trust
+        echo "NODE_EXTRA_CA_CERTS=/tmp/certs/kind-ca.crt" >> $GITHUB_ENV
+        echo "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt" >> $GITHUB_ENV
 
     - name: 🌐 Deploy Ingress Controller
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
-        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+        export NODE_EXTRA_CA_CERTS=/tmp/certs/kind-ca.crt
+        
+        # ✅ Apply with certificate validation fix
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml --validate=false
+        
         kubectl patch service -n ingress-nginx ingress-nginx-controller --type='json' -p='[
           {"op": "replace", "path": "/spec/type", "value": "NodePort"},
           {"op": "replace", "path": "/spec/ports/0/nodePort", "value": 30080},
@@ -36,12 +52,16 @@ jobs:
     - name: 🔒 Deploy Cert-Manager
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
-        kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
+        export NODE_EXTRA_CA_CERTS=/tmp/certs/kind-ca.crt
+        
+        kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml --validate=false
         kubectl wait --namespace cert-manager --for=condition=ready pod --selector=app.kubernetes.io/instance=cert-manager --timeout=300s
 
     - name: 📝 Configure SSL Issuer
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
+        export NODE_EXTRA_CA_CERTS=/tmp/certs/kind-ca.crt
+        
         # 🚀 PRODUCTION: Используем prod issuer для продакшена
         kubectl apply -f k8s/infrastructure/cluster-issuer-prod.yaml
         
@@ -51,6 +71,8 @@ jobs:
     - name: 🛠️ Deploy Application
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
+        export NODE_EXTRA_CA_CERTS=/tmp/certs/kind-ca.crt
+        
         # Создаем ConfigMaps
         kubectl create configmap nginx-html --from-file=html/index.html -o yaml --dry-run=client | kubectl apply -f -
         kubectl create configmap nginx-config --from-file=nginx-config/nginx.conf -o yaml --dry-run=client | kubectl apply -f -
@@ -61,6 +83,8 @@ jobs:
     - name: 🌐 Configure Ingress with SSL
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
+        export NODE_EXTRA_CA_CERTS=/tmp/certs/kind-ca.crt
+        
         # 🚀 PRODUCTION: Используем prod ingress для продакшена
         kubectl apply -f k8s/infrastructure/ingress-prod.yaml
         
@@ -70,6 +94,8 @@ jobs:
     - name: 🔄 Restart for Config Changes
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
+        export NODE_EXTRA_CA_CERTS=/tmp/certs/kind-ca.crt
+        
         echo "🔄 Restarting deployment to apply config changes..."
         kubectl rollout restart deployment/nginx-cicd-demo
         kubectl rollout status deployment/nginx-cicd-demo --timeout=180s
@@ -77,6 +103,8 @@ jobs:
     - name: ⏳ Wait for SSL Certificate
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
+        export NODE_EXTRA_CA_CERTS=/tmp/certs/kind-ca.crt
+        
         echo "⏳ Waiting for SSL certificate issuance..."
         sleep 90
         kubectl get certificate
@@ -85,6 +113,8 @@ jobs:
     - name: ✅ Verify Deployment
       run: |
         export KUBECONFIG=/tmp/kubeconfig.yaml
+        export NODE_EXTRA_CA_CERTS=/tmp/certs/kind-ca.crt
+        
         echo "🔍 Checking deployment status..."
         kubectl get pods
         kubectl get ingress
